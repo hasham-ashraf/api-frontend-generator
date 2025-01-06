@@ -15,13 +15,18 @@ class ArchitectureDesigner:
         ])
 
     def design(self, requirements: List[str]) -> List[str]:
+        print("\n=== ARCHITECTURE DESIGNER ===")
+        print(f"Input requirements: {requirements}")
         requirements_text = "\n".join(requirements)
         chain = self.prompt | self.llm
         result = chain.invoke({"requirements": requirements_text})
         components = result.content.split("\n")
+        print(f"Designed components: {components}")
+        print("===========================\n")
         return [comp.strip() for comp in components if comp.strip()]
 
 def architecture_designer(state: dict) -> dict:
+    print("\n=== ARCHITECTURE DESIGNER STATE UPDATE ===")
     designer = ArchitectureDesigner()
     components = designer.design(state["requirements"])
     new_state = {
@@ -31,4 +36,6 @@ def architecture_designer(state: dict) -> dict:
         "files": state.get("files", {}),
         "current_stage": "generation"
     }
+    print(f"New state: {new_state}")
+    print("=====================================\n")
     return new_state 

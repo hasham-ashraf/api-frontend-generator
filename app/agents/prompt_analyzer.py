@@ -14,12 +14,17 @@ class PromptAnalyzer:
         ])
 
     def analyze(self, prompt: str) -> List[str]:
+        print("\n=== PROMPT ANALYZER ===")
+        print(f"Input prompt: {prompt}")
         chain = self.prompt | self.llm
         result = chain.invoke({"prompt": prompt})
         requirements = result.content.split("\n")
+        print(f"Extracted requirements: {requirements}")
+        print("=====================\n")
         return [req.strip() for req in requirements if req.strip()]
 
 def prompt_analyzer(state: dict) -> dict:
+    print("\n=== PROMPT ANALYZER STATE UPDATE ===")
     analyzer = PromptAnalyzer()
     requirements = analyzer.analyze(state["prompt"])
     new_state = {
@@ -29,4 +34,6 @@ def prompt_analyzer(state: dict) -> dict:
         "files": state.get("files", {}),
         "current_stage": "architecture"
     }
+    print(f"New state: {new_state}")
+    print("=================================\n")
     return new_state 

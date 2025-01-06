@@ -18,20 +18,27 @@ class ReactGenerator:
         ])
 
     def generate_component(self, component: str, requirements: list) -> str:
+        print(f"\n=== REACT GENERATOR: Generating {component} ===")
+        print(f"Component: {component}")
+        print(f"Requirements: {requirements}")
         chain = self.component_prompt | self.llm
         result = chain.invoke({
             "component": component,
             "requirements": "\n".join(requirements)
         })
+        print(f"Generated code length: {len(result.content)} characters")
+        print("===============================\n")
         return result.content
 
     def generate_app(self, components: list) -> str:
+        print("\n=== REACT GENERATOR: Generating App.jsx ===")
+        print(f"Components to include: {components}")
         imports = "\n".join([
             f"import {comp} from './components/{comp}';"
             for comp in components
         ])
         
-        return f"""
+        app_code = f"""
 import React from 'react';
 {imports}
 
@@ -43,8 +50,12 @@ export default function App() {{
     );
 }}
 """
+        print(f"Generated App.jsx code length: {len(app_code)} characters")
+        print("====================================\n")
+        return app_code
 
 def react_generator(state: dict) -> dict:
+    print("\n=== REACT GENERATOR STATE UPDATE ===")
     generator = ReactGenerator()
     files = {}
     
@@ -57,8 +68,11 @@ def react_generator(state: dict) -> dict:
             component,
             state["requirements"]
         )
-        
-    # Create a new state dictionary with all required fields
+    
+    print(f"Generated {len(files)} files:")
+    for path in files.keys():
+        print(f"- {path}")
+    
     new_state = {
         **state,
         "files": files,
@@ -66,4 +80,5 @@ def react_generator(state: dict) -> dict:
         "components": state.get("components", []),
         "current_stage": "complete"
     }
+    print("================================\n")
     return new_state 

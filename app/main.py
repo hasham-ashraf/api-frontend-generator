@@ -72,21 +72,7 @@ async def generate_code(request: GenerationRequest):
         
         # Run graph with streaming
         async for update in chain.astream(state):
-            if "files" in update:
-                for path, content in update["files"].items():
-                    yield format_sse_event({
-                        "type": "file",
-                        "data": {
-                            "path": path,
-                            "content": content,
-                            "type": path.split(".")[-1]
-                        }
-                    })
-            if "analyze" in update:
-                print("Analyser agent")
-            elif "design" in update:
-                print("Designer agent")
-            elif "generate" in update or "__end__" in update:
+            if "generate" in update or "__end__" in update:
                 if "__end__" in update:
                     files = update["__end__"]["files"]
                 else:
@@ -97,11 +83,7 @@ async def generate_code(request: GenerationRequest):
                 yield format_sse_event(
                     files
                 )
-            else:
-                print("Unknown agent")
 
-            print(update)
-            print("================================================================================")
             await asyncio.sleep(0.1)
     
     return StreamingResponse(
