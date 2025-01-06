@@ -1,23 +1,114 @@
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import auth, projects, agents, components
+import asyncio
+from dotenv import load_dotenv
+import os
+from langgraph.graph import StateGraph, END
+from typing import TypedDict, List, Dict, Any
 
-app = FastAPI(title="AI Frontend Generator API")
+# Load environment variables
+load_dotenv()
+
+# Verify required environment variables
+if not os.getenv("ANTHROPIC_API_KEY"):
+    raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
+
+from .models import GenerationRequest
+from .utils.sse import format_sse_event
+from .agents.prompt_analyzer import prompt_analyzer
+from .agents.architecture_designer import architecture_designer
+from .agents.react_generator import react_generator
+
+# Define the state schema
+class AgentStateDict(TypedDict):
+    prompt: str
+    requirements: List[str]
+    components: List[str]
+    files: Dict[str, str]
+    current_stage: str
+
+app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
-app.include_router(agents.router, prefix="/api/v1/agents", tags=["agents"])
-app.include_router(components.router, prefix="/api/v1/components", tags=["components"])
+# Create LangGraph workflow
+workflow = StateGraph(AgentStateDict)
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"} 
+# Add nodes
+workflow.add_node("analyze", prompt_analyzer)
+workflow.add_node("design", architecture_designer)
+workflow.add_node("generate", react_generator)
+
+# Define edges
+workflow.add_edge("analyze", "design")
+workflow.add_edge("design", "generate")
+workflow.add_edge("generate", END)
+
+# Set the entry point
+workflow.set_entry_point("analyze")
+
+# Compile graph
+chain = workflow.compile()
+
+@app.post("/generate")
+async def generate_code(request: GenerationRequest):
+    async def generate():
+        # Initialize state
+        state = {
+            "prompt": request.prompt,
+            "requirements": [],
+            "components": [],
+            "files": {},
+            "current_stage": "init"
+        }
+        
+        # Run graph with streaming
+        async for update in chain.astream(state):
+            if "files" in update:
+                for path, content in update["files"].items():
+                    yield format_sse_event({
+                        "type": "file",
+                        "data": {
+                            "path": path,
+                            "content": content,
+                            "type": path.split(".")[-1]
+                        }
+                    })
+            if "analyze" in update:
+                print("Analyser agent")
+            elif "design" in update:
+                print("Designer agent")
+            elif "generate" in update or "__end__" in update:
+                if "__end__" in update:
+                    files = update["__end__"]["files"]
+                else:
+                    files = update["generate"]["files"]
+
+                print("Generator agent")
+                
+                yield format_sse_event(
+                    files
+                )
+            else:
+                print("Unknown agent")
+
+            print(update)
+            print("================================================================================")
+            await asyncio.sleep(0.1)
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream"
+    )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
