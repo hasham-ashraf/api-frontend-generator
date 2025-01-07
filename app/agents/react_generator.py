@@ -11,8 +11,6 @@ class ReactGenerator:
                 - Use functional components with hooks
                 - Include proper TypeScript types
                 - Use Tailwind CSS for styling
-                - Implement proper error handling
-                - Add JSDoc comments for documentation
                 Return only the component code without any explanation."""),
             ("user", "Component: {component}\nRequirements: {requirements}")
         ])
